@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, redirect, url_for
+from flask import Flask, request, render_template, redirect, url_for
 from datetime import datetime, timedelta
 import os
 import json
@@ -9,113 +9,6 @@ DATA_FILE = 'timelog.json'
 start_time = None
 break_start_time = None
 current_breaks = []
-
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Uhrensohn</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #f0f0f0; text-align: center; padding: 50px; }
-        h1 { color: #333; }
-        .button { padding: 10px 20px; margin: 10px; font-size: 16px; }
-        .elapsed { margin-top: 20px; font-size: 18px; color: green; }
-        .link { margin: 10px; display: inline-block; }
-    </style>
-</head>
-<body>
-    <h1>⏱️ Uhrensohn - AZ-Erfassung</h1>
-    <form action="/start" method="post"><button class="button" type="submit">▶️ Start</button></form>
-    <form action="/stop" method="post"><button class="button" type="submit">⏹️ Stop</button></form>
-    <form action="/break_start" method="post"><button class="button" type="submit">⏸️ Break Start</button></form>
-    <form action="/break_end" method="post"><button class="button" type="submit">⏯️ Break End</button></form>
-    <form action="/health" method="get"><button class="button" type="submit">❤️ Health</button></form>
-    <a class="link" href="/history">📜 View History</a>
-    {% if status %}
-    <div class="elapsed">
-        <strong>Status:</strong> {{ status }} <br/>
-        {% if start %}
-        <strong>Started:</strong> {{ start }} <br/>
-        {% endif %}
-        {% if break %}
-        <strong>On Break since:</strong> {{ break }} <br/>
-        {% endif %}
-        {% if elapsed %}
-        <strong>Elapsed:</strong> {{ elapsed }} <br/>
-        {% endif %}
-    </div>
-    {% endif %}
-</body>
-</html>
-"""
-
-HISTORY_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Session History</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #fff; padding: 40px; }
-        h1 { color: #333; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        th { background: #eee; }
-        .summary { margin-top: 20px; font-size: 16px; }
-    </style>
-</head>
-<body>
-    <h1>📜 History</h1>
-    <a href="/">🔙 Back</a>
-    <table>
-        <tr><th>Start</th><th>End</th><th>Worked</th><th>Breaks</th></tr>
-        {% for entry in entries %}
-        <tr>
-            <td>{{ entry.start }}</td>
-            <td>{{ entry.end }}</td>
-            <td>{{ entry.elapsed }}</td>
-            <td>{{ entry.breaks | default('0:00:00') }}</td>
-        </tr>
-        {% endfor %}
-    </table>
-    <div class="summary">
-        <h2>📊 Weekly Summary</h2>
-        {% for week, total in weekly_summary.items() %}
-        <p><strong>{{ week }}:</strong> {{ total }}</p>
-        {% endfor %}
-    </div>
-    <canvas id="chart" width="400" height="200"></canvas>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        const ctx = document.getElementById('chart').getContext('2d');
-        const chart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: {{ weeks | safe }},
-                datasets: [{
-                    label: 'Total Hours',
-                    data: {{ totals | safe }},
-                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(val) { return val + 'h'; }
-                        }
-                    }
-                }
-            }
-        });
-    </script>
-</body>
-</html>
-"""
 
 def load_data():
     if not os.path.exists(DATA_FILE):
@@ -133,6 +26,8 @@ def str_to_timedelta(s):
 
 @app.route("/", methods=["GET"])
 def index():
+    global start_time, break_start_time
+
     status = "🔴 Not working"
     start = None
     break_since = None
@@ -145,19 +40,21 @@ def index():
             break_since = break_start_time.strftime("%H:%M:%S")
         else:
             status = "🟢 Working"
-            elapsed = str(datetime.now() - start_time)
-        return render_template("index.html", elapsed=elapsed, status=status, start=start, break=break_since)
+            elapsed = str(datetime.now() - start_time).split(".")[0]
+
+    return render_template("index.html", elapsed=elapsed, status=status, start=start, break_since=break_since)
 
 @app.route("/start", methods=["POST"])
 def start():
-    global start_time, current_breaks
+    global start_time, current_breaks, break_start_time
     start_time = datetime.now()
     current_breaks = []
+    break_start_time = None
     return redirect(url_for('index'))
 
 @app.route("/stop", methods=["POST"])
 def stop():
-    global start_time, current_breaks
+    global start_time, current_breaks, break_start_time
     if not start_time:
         return redirect(url_for('index'))
 
@@ -168,8 +65,8 @@ def stop():
     log_entry = {
         "start": start_time.isoformat(),
         "end": end_time.isoformat(),
-        "elapsed": str(worked_time - break_total),
-        "breaks": str(break_total)
+        "elapsed": str(worked_time - break_total).split(".")[0],
+        "breaks": str(break_total).split(".")[0]
     }
 
     data = load_data()
@@ -178,12 +75,15 @@ def stop():
 
     start_time = None
     current_breaks = []
-    return render_template_string(HTML_TEMPLATE, elapsed=str(worked_time - break_total), status="🔴 Not working", start=None, break=None)
+    break_start_time = None
+
+    return redirect(url_for('index'))
 
 @app.route("/break_start", methods=["POST"])
 def break_start():
     global break_start_time
-    break_start_time = datetime.now()
+    if start_time and not break_start_time:
+        break_start_time = datetime.now()
     return redirect(url_for('index'))
 
 @app.route("/break_end", methods=["POST"])
@@ -220,11 +120,11 @@ def history():
     totals = [round(td.total_seconds() / 3600, 2) for td in weekly_summary.values()]
     weekly_summary_str = {week: str(td) for week, td in weekly_summary.items()}
 
-    return render_template_string(HISTORY_TEMPLATE,
-                                  entries=parsed_entries,
-                                  weekly_summary=weekly_summary_str,
-                                  weeks=weeks,
-                                  totals=totals)
+    return render_template("history.html",
+                           entries=parsed_entries,
+                           weekly_summary=weekly_summary_str,
+                           weeks=weeks,
+                           totals=totals)
 
 @app.route("/health", methods=["GET"])
 def health():
