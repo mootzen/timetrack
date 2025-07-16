@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  timetracker:
+    build: .
+    container_name: timetracker
+    ports:
+      - "8084:80"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
