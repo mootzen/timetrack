@@ -32,8 +32,19 @@ HTML_TEMPLATE = """
     <form action="/break_end" method="post"><button class="button" type="submit">⏯️ Break End</button></form>
     <form action="/health" method="get"><button class="button" type="submit">❤️ Health</button></form>
     <a class="link" href="/history">📜 View History</a>
-    {% if elapsed %}
-    <div class="elapsed"><strong>Elapsed Time:</strong> {{ elapsed }}</div>
+    {% if status %}
+    <div class="elapsed">
+        <strong>Status:</strong> {{ status }} <br/>
+        {% if start %}
+        <strong>Started:</strong> {{ start }} <br/>
+        {% endif %}
+        {% if break %}
+        <strong>On Break since:</strong> {{ break }} <br/>
+        {% endif %}
+        {% if elapsed %}
+        <strong>Elapsed:</strong> {{ elapsed }} <br/>
+        {% endif %}
+    </div>
     {% endif %}
 </body>
 </html>
@@ -74,6 +85,34 @@ HISTORY_TEMPLATE = """
         <p><strong>{{ week }}:</strong> {{ total }}</p>
         {% endfor %}
     </div>
+    <canvas id="chart" width="400" height="200"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const ctx = document.getElementById('chart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: {{ weeks | safe }},
+                datasets: [{
+                    label: 'Total Hours',
+                    data: {{ totals | safe }},
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(val) { return val + 'h'; }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
 </body>
 </html>
 """
@@ -88,9 +127,27 @@ def save_data(data):
     with open(DATA_FILE, 'w') as f:
         json.dump(data, f, indent=2)
 
+def str_to_timedelta(s):
+    h, m, s = map(int, s.split(":"))
+    return timedelta(hours=h, minutes=m, seconds=s)
+
 @app.route("/", methods=["GET"])
 def index():
-    return render_template_string(HTML_TEMPLATE, elapsed=None)
+    status = "🔴 Not working"
+    start = None
+    break_since = None
+    elapsed = None
+
+    if start_time:
+        start = start_time.strftime("%Y-%m-%d %H:%M:%S")
+        if break_start_time:
+            status = "🟡 On Break"
+            break_since = break_start_time.strftime("%H:%M:%S")
+        else:
+            status = "🟢 Working"
+            elapsed = str(datetime.now() - start_time)
+
+    return render_template_string(HTML_TEMPLATE, elapsed=elapsed, status=status, start=start, break=break_since)
 
 @app.route("/start", methods=["POST"])
 def start():
@@ -122,7 +179,7 @@ def stop():
 
     start_time = None
     current_breaks = []
-    return render_template_string(HTML_TEMPLATE, elapsed=str(worked_time - break_total))
+    return render_template_string(HTML_TEMPLATE, elapsed=str(worked_time - break_total), status="🔴 Not working", start=None, break=None)
 
 @app.route("/break_start", methods=["POST"])
 def break_start():
@@ -160,17 +217,19 @@ def history():
             "breaks": str(breaks)
         })
 
-    # Format timedelta into H:MM:SS
-    weekly_summary = {week: str(td) for week, td in weekly_summary.items()}
-    return render_template_string(HISTORY_TEMPLATE, entries=parsed_entries, weekly_summary=weekly_summary)
+    weeks = list(weekly_summary.keys())
+    totals = [round(td.total_seconds() / 3600, 2) for td in weekly_summary.values()]
+    weekly_summary_str = {week: str(td) for week, td in weekly_summary.items()}
+
+    return render_template_string(HISTORY_TEMPLATE,
+                                  entries=parsed_entries,
+                                  weekly_summary=weekly_summary_str,
+                                  weeks=weeks,
+                                  totals=totals)
 
 @app.route("/health", methods=["GET"])
 def health():
     return "Service healthy ✅", 200
-
-def str_to_timedelta(s):
-    h, m, s = map(int, s.split(":"))
-    return timedelta(hours=h, minutes=m, seconds=s)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80)
