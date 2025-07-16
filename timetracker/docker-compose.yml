@@ -8,5 +8,5 @@ services:
       - "8084:80"
     volumes:
       - ./data:/data
-      - ./timelog.json:/app/timelog.json
+      - .:/app
     restart: unless-stopped
