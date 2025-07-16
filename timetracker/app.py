@@ -146,8 +146,7 @@ def index():
         else:
             status = "🟢 Working"
             elapsed = str(datetime.now() - start_time)
-
-    return render_template("index.html", elapsed=elapsed, status=status, start=start, break=break_since)
+        return render_template("index.html", elapsed=elapsed, status=status, start=start, break=break_since)
 
 @app.route("/start", methods=["POST"])
 def start():
