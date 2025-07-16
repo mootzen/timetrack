@@ -1,24 +1,37 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Time Tracker Summary</title>
+  <meta charset="UTF-8">
+  <title>Uhrensohn</title>
   <style>
-    body { font-family: sans-serif; background: #f7f7f7; padding: 20px; }
-    .card { background: white; padding: 20px; margin: 20px auto; max-width: 400px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    h1 { font-size: 22px; }
-    p { font-size: 18px; }
+    body { font-family: Arial, sans-serif; background: #f0f0f0; text-align: center; padding: 50px; }
+    h1 { color: #333; }
+    .button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+    .elapsed { margin-top: 20px; font-size: 18px; color: green; }
+    .link { margin: 10px; display: inline-block; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Today's Hours</h1>
-    <p>{{ today_hours }} hrs</p>
-    <h1>Week Total</h1>
-    <p>{{ week_hours }} hrs</p>
-    <h1>Overtime</h1>
-    <p>{{ overtime }} hrs</p>
+  <h1>⏱️ Uhrensohn - AZ-Erfassung</h1>
+  <form action="/start" method="post"><button class="button" type="submit">▶️ Start</button></form>
+  <form action="/stop" method="post"><button class="button" type="submit">⏹️ Stop</button></form>
+  <form action="/break_start" method="post"><button class="button" type="submit">⏸️ Break Start</button></form>
+  <form action="/break_end" method="post"><button class="button" type="submit">⏯️ Break End</button></form>
+  <form action="/health" method="get"><button class="button" type="submit">❤️ Health</button></form>
+  <a class="link" href="/history">📜 View History</a>
+  {% if status %}
+  <div class="elapsed">
+      <strong>Status:</strong> {{ status }} <br/>
+      {% if start %}
+      <strong>Started:</strong> {{ start }} <br/>
+      {% endif %}
+      {% if break %}
+      <strong>On Break since:</strong> {{ break }} <br/>
+      {% endif %}
+      {% if elapsed %}
+      <strong>Elapsed:</strong> {{ elapsed }} <br/>
+      {% endif %}
   </div>
+  {% endif %}
 </body>
 </html>
