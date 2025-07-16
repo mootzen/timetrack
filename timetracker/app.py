@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template_string, redirect, url_for
+from flask import Flask, request, jsonify, render_template, redirect, url_for
 from datetime import datetime, timedelta
 import os
 import json
@@ -147,7 +147,7 @@ def index():
             status = "🟢 Working"
             elapsed = str(datetime.now() - start_time)
 
-    return render_template_string(HTML_TEMPLATE, elapsed=elapsed, status=status, start=start, break=break_since)
+    return render_template("index.html", elapsed=elapsed, status=status, start=start, break=break_since)
 
 @app.route("/start", methods=["POST"])
 def start():
