@@ -21,8 +21,11 @@ def save_data(data):
         json.dump(data, f, indent=2)
 
 def str_to_timedelta(s):
-    h, m, s = map(int, s.split(":"))
-    return timedelta(hours=h, minutes=m, seconds=s)
+    """Convert HH:MM:SS string (possibly with microseconds) to timedelta."""
+    if '.' in s:
+        s = s.split('.')[0]
+    h, m, sec = map(int, s.split(":"))
+    return timedelta(hours=h, minutes=m, seconds=sec)
 
 @app.route("/", methods=["GET"])
 def index():
