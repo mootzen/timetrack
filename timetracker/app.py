@@ -1,128 +1,88 @@
-
-from flask import Flask, jsonify, request, render_template
-from datetime import datetime, timedelta
-import sqlite3
+from flask import Flask, request, jsonify, render_template_string, redirect, url_for
+from datetime import datetime
 import os
+import json
 
-app = Flask(__name__, template_folder='templates')
-DB_PATH = "/data/timetracker.db"
+app = Flask(__name__)
 
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS entries (
-                    id INTEGER PRIMARY KEY,
-                    start_time TEXT,
-                    end_time TEXT,
-                    break_start TEXT,
-                    break_end TEXT
-                )''')
-    conn.commit()
-    conn.close()
+DATA_FILE = 'timelog.json'
+start_time = None
 
-@app.route('/')
-def home():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    today = datetime.now().date().isoformat()
-    c.execute("SELECT start_time, end_time, break_start, break_end FROM entries WHERE date(start_time) = ?", (today,))
-    entries = c.fetchall()
-    total_work = timedelta()
-    for e in entries:
-        if e[0] and e[1]:
-            start = datetime.fromisoformat(e[0])
-            end = datetime.fromisoformat(e[1])
-            duration = end - start
-            if e[2] and e[3]:
-                b_start = datetime.fromisoformat(e[2])
-                b_end = datetime.fromisoformat(e[3])
-                duration -= (b_end - b_start)
-            total_work += duration
-    hours_today = round(total_work.total_seconds() / 3600, 2)
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Uhrensohn</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f0f0f0; text-align: center; padding: 50px; }
+        h1 { color: #333; }
+        .button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        .elapsed { margin-top: 20px; font-size: 18px; color: green; }
+    </style>
+</head>
+<body>
+    <h1>⏱️ Uhrensohn - AZ-Erfassung</h1>
+    <form action="/start" method="post">
+        <button class="button" type="submit">▶️ Start</button>
+    </form>
+    <form action="/stop" method="post">
+        <button class="button" type="submit">⏹️ Stop</button>
+    </form>
+    <form action="/health" method="get">
+        <button class="button" type="submit">❤️ Health</button>
+    </form>
+    {% if elapsed %}
+    <div class="elapsed">
+        <strong>Elapsed Time:</strong> {{ elapsed }}
+    </div>
+    {% endif %}
+</body>
+</html>
+"""
 
-    this_week = datetime.now().isocalendar()[1]
-    c.execute("SELECT start_time, end_time, break_start, break_end FROM entries")
-    entries_all = c.fetchall()
-    total_week = timedelta()
-    for e in entries_all:
-        if e[0] and e[1]:
-            start = datetime.fromisoformat(e[0])
-            end = datetime.fromisoformat(e[1])
-            if start.isocalendar()[1] == this_week:
-                duration = end - start
-                if e[2] and e[3]:
-                    b_start = datetime.fromisoformat(e[2])
-                    b_end = datetime.fromisoformat(e[3])
-                    duration -= (b_end - b_start)
-                total_week += duration
-    hours_week = round(total_week.total_seconds() / 3600, 2)
-    overtime = round(hours_week - 40, 2) if hours_week > 40 else 0
+def load_data():
+    if not os.path.exists(DATA_FILE):
+        return []
+    with open(DATA_FILE, 'r') as f:
+        return json.load(f)
 
-    conn.close()
-    return render_template("index.html", today_hours=hours_today, week_hours=hours_week, overtime=overtime)
+def save_data(data):
+    with open(DATA_FILE, 'w') as f:
+        json.dump(data, f, indent=2)
 
-@app.route('/health', methods=['GET'])
+@app.route("/", methods=["GET"])
+def index():
+    return render_template_string(HTML_TEMPLATE, elapsed=None)
+
+@app.route("/start", methods=["POST"])
+def start():
+    global start_time
+    start_time = datetime.now()
+    return redirect(url_for('index'))
+
+@app.route("/stop", methods=["POST"])
+def stop():
+    global start_time
+    if start_time is None:
+        return redirect(url_for('index'))
+
+    end_time = datetime.now()
+    elapsed = end_time - start_time
+    log_entry = {
+        "start": start_time.isoformat(),
+        "end": end_time.isoformat(),
+        "elapsed": str(elapsed)
+    }
+    data = load_data()
+    data.append(log_entry)
+    save_data(data)
+    start_time = None
+    return render_template_string(HTML_TEMPLATE, elapsed=str(elapsed))
+
+@app.route("/health", methods=["GET"])
 def health():
     return "Service healthy ✅", 200
 
-@app.route('/start', methods=['POST', 'GET'])
-def start_work():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("INSERT INTO entries (start_time) VALUES (?)", (datetime.now().isoformat(),))
-    conn.commit()
-    conn.close()
-
-    if request.method == 'GET':
-        return "<h1>✅ Work started</h1>", 200
-    return jsonify({"message": "Work started"}), 200
-
-@app.route('/stop', methods=['POST', 'GET'])
-def stop_work():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT id FROM entries WHERE end_time IS NULL ORDER BY id DESC LIMIT 1")
-    row = c.fetchone()
-    if row:
-        c.execute("UPDATE entries SET end_time = ? WHERE id = ?", (datetime.now().isoformat(), row[0]))
-        conn.commit()
-    conn.close()
-
-    if request.method == 'GET':
-        return "<h1>✅ Work stopped</h1>", 200
-    return jsonify({"message": "Work stopped"}), 200
-
-@app.route('/start_break', methods=['POST', 'GET'])
-def start_break():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT id FROM entries WHERE end_time IS NULL ORDER BY id DESC LIMIT 1")
-    row = c.fetchone()
-    if row:
-        c.execute("UPDATE entries SET break_start = ? WHERE id = ?", (datetime.now().isoformat(), row[0]))
-        conn.commit()
-    conn.close()
-
-    if request.method == 'GET':
-        return "<h1>☕ Break started</h1>", 200
-    return jsonify({"message": "Break started"}), 200
-
-@app.route('/end_break', methods=['POST', 'GET'])
-def end_break():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT id FROM entries WHERE end_time IS NULL ORDER BY id DESC LIMIT 1")
-    row = c.fetchone()
-    if row:
-        c.execute("UPDATE entries SET break_end = ? WHERE id = ?", (datetime.now().isoformat(), row[0]))
-        conn.commit()
-    conn.close()
-
-    if request.method == 'GET':
-        return "<h1>☕ Break ended</h1>", 200
-    return jsonify({"message": "Break ended"}), 200
-
-if __name__ == '__main__':
-    os.makedirs('/data', exist_ok=True)
-    init_db()
-    app.run(host='0.0.0.0', port=80)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=80)
