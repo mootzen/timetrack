@@ -42,12 +42,12 @@ def index():
     history = load_json(HISTORY_FILE, [])
 
     start_time = data.get('start_time')
-    status = data.get('status', 'Stopped')
     display_start_time = None
+    status = data.get('status', 'Stopped')
+
     elapsed = ''
     if start_time:
         start_dt = datetime.fromisoformat(start_time).astimezone(ZoneInfo("Europe/Berlin"))
-        display_start_time = start_dt.strftime("%Y-%m-%d %H:%M:%S")
         delta = datetime.now(ZoneInfo("Europe/Berlin")) - start_dt
         elapsed = str(delta).split('.')[0]
 
@@ -78,7 +78,7 @@ def index():
     percent_week = round(100 * worked_week.total_seconds() / expected_week.total_seconds(), 1)
 
     return render_template('index.html',
-                           start_time=display_start_time,
+                           start_time=start_dt.strftime("%Y-%m-%d %H:%M:%S"),
                            elapsed=elapsed,
                            status=status,
                            worked_today=str(worked_today).split('.')[0],
@@ -123,14 +123,43 @@ def stop():
         data['start_time'] = None
         save_json(TRACK_FILE, data)
     return redirect(url_for('index'))
+from collections import defaultdict
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 @app.route('/history')
 def history():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-
     entries = load_json(HISTORY_FILE, [])
-    return render_template('history.html', entries=entries)
+    tz = ZoneInfo("Europe/Berlin")
+
+    # Separate display and computation
+    for entry in entries:
+        start_dt = datetime.fromisoformat(entry['start']).astimezone(tz)
+        end_dt = datetime.fromisoformat(entry['end']).astimezone(tz)
+        entry['start_display'] = start_dt.strftime("%Y-%m-%d %H:%M:%S")
+        entry['end_display'] = end_dt.strftime("%Y-%m-%d %H:%M:%S")
+        entry['start_dt'] = start_dt  # for internal computation
+
+    # Weekly aggregation based on start time
+    summary = defaultdict(float)
+    for entry in entries:
+        start = entry['start_dt']
+        hours, minutes, seconds = map(int, entry['duration'].split(':'))
+        total_hours = hours + minutes / 60 + seconds / 3600
+        week = f"{start.year}-W{start.isocalendar().week:02d}"
+        summary[week] += total_hours
+
+    # Prepare chart data
+    weeks = list(summary.keys())
+    totals = [round(summary[week], 2) for week in weeks]
+
+    return render_template(
+        'history.html',
+        entries=entries,
+        weekly_summary=summary,
+        weeks=weeks,
+        totals=totals
+    )
 
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
