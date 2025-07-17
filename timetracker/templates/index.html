@@ -1,83 +1,50 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="{{ 'dark' if session.get('dark_mode') else 'light' }}">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Uhrensohn</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: var(--background-color, #f0f0f0);
-      text-align: center;
-      padding: 50px;
-      margin: 0;
-    }
-    h1 {
-      color: #333;
-      margin-bottom: 30px;
-    }
-    .button {
-      padding: 10px 20px;
-      margin: 10px;
-      font-size: 18px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    .elapsed {
-      margin-top: 20px;
-      font-size: 18px;
-      color: green;
-    }
-    .link {
-      margin: 10px;
-      display: inline-block;
-      text-decoration: none;
-      font-size: 16px;
-    }
-    .footer {
-      margin-top: 30px;
-    }
-    @media (max-width: 600px) {
-      body { padding: 20px; }
-      .button { font-size: 16px; padding: 8px 16px; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Uhrensohn</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script>
+        let startTime = "{{ start_time }}";
+        let elapsedTime = "{{ elapsed }}";
+        function updateElapsed() {
+            const start = new Date(startTime);
+            const now = new Date();
+            const diff = new Date(now - start);
+            const hrs = String(diff.getUTCHours()).padStart(2, '0');
+            const mins = String(diff.getUTCMinutes()).padStart(2, '0');
+            const secs = String(diff.getUTCSeconds()).padStart(2, '0');
+            document.getElementById('elapsed').textContent = `${hrs}:${mins}:${secs}`;
+        }
+        setInterval(updateElapsed, 1000);
+    </script>
 </head>
 <body>
-  <h1>⏱️ Uhrensohn - AZ-Erfassung</h1>
+    <div class="container">
+        <h1>⏱️ Uhrensohn - AZ-Erfassung</h1>
+        <form action="/start" method="post"><button class="button">▶️ Start</button></form>
+        <form action="/stop" method="post"><button class="button">⏹️ Stop</button></form>
+        <form action="/logout" method="post"><button class="button">🚪 Logout</button></form>
+        <a href="/history" class="link">📜 History</a>
+        <a href="/settings" class="link">⚙️ Settings</a>
 
-  <form action="/start" method="post">
-    <button class="button" type="submit">▶️ Start</button>
-  </form>
-  <form action="/stop" method="post">
-    <button class="button" type="submit">⏹️ Stop</button>
-  </form>
+        {% if status %}
+        <div class="status">
+            <p><strong>Status:</strong> {{ status }}</p>
+            {% if start_time %}
+            <p><strong>Start Time:</strong> {{ start_time }}</p>
+            {% endif %}
+            {% if elapsed %}
+            <p><strong>Elapsed:</strong> <span id="elapsed">{{ elapsed }}</span></p>
+            {% endif %}
+        </div>
+        {% endif %}
 
-  <div class="footer">
-    <a class="link" href="/history">📜 View History</a> |
-    <a class="link" href="/settings">⚙️ Settings</a> |
-    <form style="display:inline;" action="/logout" method="post">
-      <button class="button" style="font-size: 14px;">🚪 Logout</button>
-    </form>
-  </div>
-
-  {% if status %}
-  <div class="elapsed">
-    <strong>Status:</strong> {{ status }} <br/>
-    {% if start_time %}
-    <strong>Started:</strong> {{ start_time }} <br/>
-    {% endif %}
-    {% if elapsed %}
-    <strong>Elapsed:</strong> {{ elapsed }} <br/>
-    {% endif %}
-  </div>
-  <div class="summary">
-    <h2>📈 Progress</h2>
-    <p><strong>Worked today:</strong> {{ worked_today }} / {{ expected_today }} ({{ percent_today }}%)</p>
-    <p><strong>Worked this week:</strong> {{ worked_week }} / {{ expected_week }} ({{ percent_week }}%)</p>
-</div>
-  {% endif %}
+        <div class="summary">
+            <h2>📈 Progress</h2>
+            <p><strong>Worked today:</strong> {{ worked_today }} / {{ expected_today }} ({{ percent_today }}%)</p>
+            <p><strong>Worked this week:</strong> {{ worked_week }} / {{ expected_week }} ({{ percent_week }}%)</p>
+        </div>
+    </div>
 </body>
 </html>
