@@ -1,10 +1,17 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from datetime import datetime, timedelta
+from datetime import timezone
 from zoneinfo import ZoneInfo
 import os
 import json
 from werkzeug.security import check_password_hash
 from dotenv import load_dotenv
+def safe_parse_iso(dt_str, tz):
+    dt = datetime.fromisoformat(dt_str)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(tz)
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -47,7 +54,7 @@ def index():
 
     elapsed = ''
     if start_time:
-        start_dt = datetime.fromisoformat(start_time).astimezone(ZoneInfo("Europe/Berlin"))
+        start_dt = safe_parse_iso(start_time, ZoneInfo("Europe/Berlin"))
         delta = datetime.now(ZoneInfo("Europe/Berlin")) - start_dt
         elapsed = str(delta).split('.')[0]
 
@@ -60,8 +67,8 @@ def index():
     worked_week = timedelta()
 
     for entry in history:
-        s = datetime.fromisoformat(entry['start']).astimezone(ZoneInfo("Europe/Berlin"))
-        e = datetime.fromisoformat(entry['end']).astimezone(ZoneInfo("Europe/Berlin"))
+        s = safe_parse_iso(entry['start'], ZoneInfo("Europe/Berlin"))
+        e = safe_parse_iso(entry['end'], ZoneInfo("Europe/Berlin"))
         dur = e - s
         if s >= start_of_today:
             worked_today += dur
@@ -107,7 +114,7 @@ def stop():
 
     data = load_json(TRACK_FILE, {})
     if data.get('status') == 'Started':
-        start_time = datetime.fromisoformat(data['start_time']).astimezone(ZoneInfo("Europe/Berlin"))
+        start_time = safe_parse_iso(data['start_time'], ZoneInfo("Europe/Berlin"))
         end_time = datetime.now(ZoneInfo("Europe/Berlin"))
         duration = str(end_time - start_time).split('.')[0]
 
@@ -134,8 +141,8 @@ def history():
 
     # Separate display and computation
     for entry in entries:
-        start_dt = datetime.fromisoformat(entry['start']).astimezone(tz)
-        end_dt = datetime.fromisoformat(entry['end']).astimezone(tz)
+        start_dt = safe_parse_iso(entry['start'], tz)
+        end_dt = safe_parse_iso(entry['end'], tz)
         entry['start_display'] = start_dt.strftime("%Y-%m-%d %H:%M:%S")
         entry['end_display'] = end_dt.strftime("%Y-%m-%d %H:%M:%S")
         entry['start_dt'] = start_dt  # for internal computation
