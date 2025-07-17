@@ -9,7 +9,9 @@ from dotenv import load_dotenv
 def safe_parse_iso(dt_str, tz):
     dt = datetime.fromisoformat(dt_str)
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=tz)
+    return dt.astimezone(tz)
+
     return dt.astimezone(tz)
 
 
