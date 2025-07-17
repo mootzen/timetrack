@@ -73,6 +73,11 @@
     <strong>Elapsed:</strong> {{ elapsed }} <br/>
     {% endif %}
   </div>
+  <div class="summary">
+    <h2>📈 Progress</h2>
+    <p><strong>Worked today:</strong> {{ worked_today }} / {{ expected_today }} ({{ percent_today }}%)</p>
+    <p><strong>Worked this week:</strong> {{ worked_week }} / {{ expected_week }} ({{ percent_week }}%)</p>
+</div>
   {% endif %}
 </body>
 </html>
