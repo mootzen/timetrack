@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="{{ 'dark' if session.get('dark_mode') else 'light' }}">
 <head>
+    <link rel="icon" type="image/x-icon" href="static/favicon.ico">
+    <style>
+      .logo-container {
+          text-align: center;
+          margin-top: 20px;
+      }
+      .logo-container img {
+          height: 120px;
+          max-width: 90%;
+      }
+    </style>
     <meta charset="UTF-8">
     <title>Uhrensohn</title>
     <link rel="stylesheet" href="/static/style.css">
