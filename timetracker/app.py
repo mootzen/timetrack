@@ -125,9 +125,9 @@ def settings():
 
     settings_data = load_settings()
     user_settings = settings_data.get(session['username'], {
-        'daily_hours': 8,
-        'weekly_hours': 40,
-        'break_minutes': 30,
+        'daily_hours': 9,
+        'weekly_hours': 38,
+        'break_minutes': 60,
         'dark_mode': True
     })
 
