@@ -89,7 +89,8 @@ def index():
     percent_week = round(100 * worked_week.total_seconds() / expected_week.total_seconds(), 1)
 
     return render_template('index.html',
-                           start_time=start_dt.strftime("%Y-%m-%d %H:%M:%S") if start_time else "",
+                           start_dt_iso=start_dt.isoformat() if start_time else "",
+                           start_time=start_dt.strftime("%Y-%m-%d %H:%M:%S %Z") if start_time else "",
                            elapsed=elapsed,
                            status=status,
                            worked_today=str(worked_today).split('.')[0],
