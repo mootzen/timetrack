@@ -1,26 +1,26 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="{{ 'dark' if session.get('dark_mode') else 'light' }}">
 <head>
-    <meta charset="UTF-8">
-    <title>Settings</title>
-    <link rel="stylesheet" href="/static/style.css">
+  <meta charset="UTF-8">
+  <title>⚙️ Settings</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Settings</h1>
-        <form method="post">
-            <label>Daily Work Hours: <input type="number" name="daily_hours" value="{{ settings.daily_hours }}" step="0.1"></label><br>
-            <label>Weekly Work Hours: <input type="number" name="weekly_hours" value="{{ settings.weekly_hours }}" step="0.1"></label><br>
-            <label>Break Time (minutes): <input type="number" name="break_minutes" value="{{ settings.break_minutes }}"></label><br>
-            <label>Dark Mode:
-                <select name="dark_mode">
-                    <option value="1" {% if settings.dark_mode %}selected{% endif %}>Enabled</option>
-                    <option value="0" {% if not settings.dark_mode %}selected{% endif %}>Disabled</option>
-                </select>
-            </label><br>
-            <button type="submit">Save</button>
-        </form>
-        <a href="/">Back</a>
-    </div>
+  <div class="container">
+    <h1>⚙️ Settings</h1>
+    <form method="post">
+      <label>🕗 Daily Work Hours: <input type="number" name="daily_hours" value="{{ settings.daily_hours }}" step="0.1"></label><br>
+      <label>📅 Weekly Work Hours: <input type="number" name="weekly_hours" value="{{ settings.weekly_hours }}" step="0.1"></label><br>
+      <label>☕ Break Time (minutes): <input type="number" name="break_minutes" value="{{ settings.break_minutes }}"></label><br>
+      <label>🌗 Dark Mode:
+        <select name="dark_mode">
+          <option value="1" {% if settings.dark_mode %}selected{% endif %}>Enabled</option>
+          <option value="0" {% if not settings.dark_mode %}selected{% endif %}>Disabled</option>
+        </select>
+      </label><br><br>
+      <button class="button" type="submit">💾 Save</button>
+    </form>
+    <a class="link" href="/">🔙 Back</a>
+  </div>
 </body>
 </html>
