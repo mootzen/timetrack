@@ -10,6 +10,7 @@ app.secret_key = 'your_secret_key_here'
 DATA_DIR = 'data'
 TRACK_FILE = os.path.join(DATA_DIR, 'track.json')
 USERS_FILE = os.path.join(DATA_DIR, 'users.json')
+SETTINGS_FILE = os.path.join(DATA_DIR, 'settings.json')
 
 # Ensure data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -23,6 +24,22 @@ def load_tracking_data():
 def save_tracking_data(data):
     with open(TRACK_FILE, 'w') as f:
         json.dump(data, f)
+
+def load_users():
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def load_settings():
+    if os.path.exists(SETTINGS_FILE):
+        with open(SETTINGS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_settings(settings):
+    with open(SETTINGS_FILE, 'w') as f:
+        json.dump(settings, f)
 
 @app.route('/')
 def index():
@@ -69,7 +86,6 @@ def stop():
         end_time = datetime.now()
         duration = str(end_time - start_time).split('.')[0]
 
-        # Save to history
         history_file = os.path.join(DATA_DIR, 'history.json')
         history = []
         if os.path.exists(history_file):
@@ -102,11 +118,32 @@ def history():
         entries = []
     return render_template('history.html', entries=entries)
 
-def load_users():
-    if os.path.exists(USERS_FILE):
-        with open(USERS_FILE, 'r') as f:
-            return json.load(f)
-    return {}
+@app.route('/settings', methods=['GET', 'POST'])
+def settings():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    settings_data = load_settings()
+    user_settings = settings_data.get(session['username'], {
+        'daily_hours': 8,
+        'weekly_hours': 40,
+        'break_minutes': 30,
+        'dark_mode': True
+    })
+
+    if request.method == 'POST':
+        user_settings['daily_hours'] = float(request.form.get('daily_hours', 8))
+        user_settings['weekly_hours'] = float(request.form.get('weekly_hours', 40))
+        user_settings['break_minutes'] = int(request.form.get('break_minutes', 30))
+        user_settings['dark_mode'] = request.form.get('dark_mode') == '1'
+
+        settings_data[session['username']] = user_settings
+        save_settings(settings_data)
+
+        session['dark_mode'] = user_settings['dark_mode']  # Update session
+        return redirect(url_for('index'))
+
+    return render_template('settings.html', settings=user_settings)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -119,6 +156,7 @@ def login():
 
         if stored_hash and check_password_hash(stored_hash, password):
             session['username'] = username
+            session['dark_mode'] = load_settings().get(username, {}).get('dark_mode', True)
             return redirect(url_for('index'))
         else:
             return render_template('login.html', error="Invalid credentials")
@@ -127,6 +165,7 @@ def login():
 @app.route('/logout', methods=['POST'])
 def logout():
     session.pop('username', None)
+    session.pop('dark_mode', None)
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
