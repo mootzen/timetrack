@@ -148,8 +148,8 @@ def history():
     for entry in entries:
         start_dt = safe_parse_iso(entry['start'], tz)
         end_dt = safe_parse_iso(entry['end'], tz)
-        entry['start_display'] = start_dt.strftime("%Y-%m-%d %H:%M:%S")
-        entry['end_display'] = end_dt.strftime("%Y-%m-%d %H:%M:%S")
+        entry['start_display'] = start_dt.strftime('%d-%m-%y %H:%M:%S')
+        entry['end_display'] = end_dt.strftime('%d-%m-%y %H:%M:%S')
         entry['start_dt'] = start_dt  # for internal computation
 
     # Weekly aggregation based on start time
