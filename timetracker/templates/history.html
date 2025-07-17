@@ -3,36 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <title>Session History</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #fff; padding: 40px; }
-        h1 { color: #333; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        th { background: #eee; }
-        .summary { margin-top: 20px; font-size: 16px; }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body>
-    <h1>📜 History</h1>
-    <a href="/">🔙 Back</a>
-    <table>
-        <tr><th>Start</th><th>End</th><th>Worked</th><th>Breaks</th></tr>
-        {% for entry in entries %}
-        <tr>
-            <td>{{ entry.start }}</td>
-            <td>{{ entry.end }}</td>
-            <td>{{ entry.elapsed }}</td>
-            <td>{{ entry.breaks }}</td>
-        </tr>
-        {% endfor %}
-    </table>
-    <div class="summary">
-        <h2>📊 Weekly Summary</h2>
-        {% for week, total in weekly_summary.items() %}
-        <p><strong>{{ week }}:</strong> {{ total }}</p>
-        {% endfor %}
+<body class="{{ 'dark' if dark_mode else '' }}">
+    <div class="container">
+        <h1>📜 History</h1>
+        <a href="/" class="button">🔙 Back</a>
+        <table>
+            <thead>
+                <tr><th>Start</th><th>End</th><th>Worked</th><th>Breaks</th></tr>
+            </thead>
+            <tbody>
+                {% for entry in entries %}
+                <tr>
+                    <td>{{ entry.start }}</td>
+                    <td>{{ entry.end }}</td>
+                    <td>{{ entry.elapsed }}</td>
+                    <td>{{ entry.breaks }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="summary">
+            <h2>📊 Weekly Summary</h2>
+            {% for week, total in weekly_summary.items() %}
+            <p><strong>{{ week }}:</strong> {{ total }}</p>
+            {% endfor %}
+        </div>
+
+        <canvas id="chart" width="400" height="200"></canvas>
     </div>
-    <canvas id="chart" width="400" height="200"></canvas>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         const ctx = document.getElementById('chart').getContext('2d');
@@ -49,6 +52,7 @@
                 }]
             },
             options: {
+                responsive: true,
                 scales: {
                     y: {
                         beginAtZero: true,
