@@ -122,14 +122,38 @@ def stop():
         save_json(TRACK_FILE, data)
     return redirect(url_for('index'))
 
+from collections import defaultdict
+from datetime import datetime
+
 @app.route('/history')
 def history():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-
     entries = load_json(HISTORY_FILE, [])
-    return render_template('history.html', entries=entries)
 
+    # Format entries for display
+    for entry in entries:
+        entry['start'] = entry['start'].replace('T', ' ')[:19]
+        entry['end'] = entry['end'].replace('T', ' ')[:19]
+
+    # Weekly aggregation
+    summary = defaultdict(float)
+    for entry in entries:
+        start = datetime.fromisoformat(entry['start'])
+        hours, minutes, seconds = map(int, entry['duration'].split(':'))
+        total_hours = hours + minutes / 60 + seconds / 3600
+        week = f"{start.year}-W{start.isocalendar().week:02d}"
+        summary[week] += total_hours
+
+    # Prepare chart data
+    weeks = list(summary.keys())
+    totals = [round(summary[week], 2) for week in weeks]
+
+    return render_template(
+        'history.html',
+        entries=entries,
+        weekly_summary=summary,
+        weeks=weeks,
+        totals=totals
+    )
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
     if 'username' not in session:
