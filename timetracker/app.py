@@ -2,117 +2,118 @@ from flask import Flask, render_template, request, redirect, url_for, session
 from datetime import datetime, timedelta
 import os
 import json
-import pytz
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = 'your_secret_key_here'
 
-DATA_FILE = 'data.json'
-TIMEZONE = pytz.timezone('Europe/Berlin')  # CEST/UTC+2
+DATA_DIR = 'data'
+TRACK_FILE = os.path.join(DATA_DIR, 'track.json')
 
-DEFAULT_SETTINGS = {
-    "expected_daily_hours": 8,
-    "expected_weekly_hours": 40,
-    "break_minutes": 30,
-    "dark_mode": False
-}
+# Ensure data directory exists
+os.makedirs(DATA_DIR, exist_ok=True)
 
-def load_data():
-    if not os.path.exists(DATA_FILE):
-        return {}
-    try:
-        with open(DATA_FILE, 'r') as f:
+def load_tracking_data():
+    if os.path.exists(TRACK_FILE):
+        with open(TRACK_FILE, 'r') as f:
             return json.load(f)
-    except json.JSONDecodeError:
-        return {}
+    return {}
 
-def save_data(data):
-    with open(DATA_FILE, 'w') as f:
-        json.dump(data, f, indent=2)
-
-def get_user():
-    return session.get('username', 'default')
+def save_tracking_data(data):
+    with open(TRACK_FILE, 'w') as f:
+        json.dump(data, f)
 
 @app.route('/')
 def index():
-    user = get_user()
-    data = load_data()
-    start_time = data.get(user, {}).get('start_time')
-    is_tracking = start_time is not None
-    settings = data.get(user, {}).get('settings', DEFAULT_SETTINGS)
-    return render_template('index.html', is_tracking=is_tracking, settings=settings)
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    data = load_tracking_data()
+    start_time = data.get('start_time')
+    status = data.get('status', 'Stopped')
+
+    elapsed = ''
+    if start_time:
+        start_dt = datetime.fromisoformat(start_time)
+        delta = datetime.now() - start_dt
+        elapsed = str(delta).split('.')[0]
+
+    return render_template(
+        'index.html',
+        start_time=start_time,
+        elapsed=elapsed,
+        status=status
+    )
 
 @app.route('/start', methods=['POST'])
 def start():
-    user = get_user()
-    data = load_data()
-    if user not in data:
-        data[user] = {}
-    data[user]['start_time'] = datetime.now(TIMEZONE).isoformat()
-    save_data(data)
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    data = load_tracking_data()
+    if data.get('status') != 'Started':
+        data['start_time'] = datetime.now().isoformat()
+        data['status'] = 'Started'
+        save_tracking_data(data)
     return redirect(url_for('index'))
 
 @app.route('/stop', methods=['POST'])
 def stop():
-    user = get_user()
-    data = load_data()
-    user_data = data.get(user, {})
-    start_time = user_data.pop('start_time', None)
-    if start_time:
-        start_dt = datetime.fromisoformat(start_time)
-        end_dt = datetime.now(TIMEZONE)
-        duration = (end_dt - start_dt).total_seconds()
-        history = user_data.setdefault('history', [])
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    data = load_tracking_data()
+    if data.get('status') == 'Started':
+        start_time = datetime.fromisoformat(data['start_time'])
+        end_time = datetime.now()
+        duration = str(end_time - start_time).split('.')[0]
+
+        # Save to history
+        history_file = os.path.join(DATA_DIR, 'history.json')
+        history = []
+        if os.path.exists(history_file):
+            with open(history_file, 'r') as f:
+                history = json.load(f)
+
         history.append({
-            'start': start_time,
-            'end': end_dt.isoformat(),
+            'start': data['start_time'],
+            'end': end_time.isoformat(),
             'duration': duration
         })
-    save_data(data)
+        with open(history_file, 'w') as f:
+            json.dump(history, f)
+
+        data['status'] = 'Stopped'
+        data['start_time'] = None
+        save_tracking_data(data)
     return redirect(url_for('index'))
 
 @app.route('/history')
 def history():
-    user = get_user()
-    data = load_data()
-    history = data.get(user, {}).get('history', [])
-    settings = data.get(user, {}).get('settings', DEFAULT_SETTINGS)
+    if 'username' not in session:
+        return redirect(url_for('login'))
 
-    # Calculate total work time this week
-    this_week = datetime.now(TIMEZONE).isocalendar().week
-    total_seconds = sum(e['duration'] for e in history if datetime.fromisoformat(e['start']).isocalendar().week == this_week)
-    percent = round((total_seconds / (settings['expected_weekly_hours'] * 3600)) * 100, 1)
-
-    return render_template('history.html', history=history[::-1], total_seconds=total_seconds, percent=percent, settings=settings)
-
-@app.route('/settings', methods=['GET', 'POST'])
-def settings():
-    user = get_user()
-    data = load_data()
-    user_data = data.setdefault(user, {})
-    if request.method == 'POST':
-        user_data['settings'] = {
-            'expected_daily_hours': float(request.form['daily_hours']),
-            'expected_weekly_hours': float(request.form['weekly_hours']),
-            'break_minutes': int(request.form['break_minutes']),
-            'dark_mode': 'dark_mode' in request.form
-        }
-        save_data(data)
-        return redirect(url_for('index'))
-    settings = user_data.get('settings', DEFAULT_SETTINGS)
-    return render_template('settings.html', settings=settings)
+    history_file = os.path.join(DATA_DIR, 'history.json')
+    if os.path.exists(history_file):
+        with open(history_file, 'r') as f:
+            entries = json.load(f)
+    else:
+        entries = []
+    return render_template('history.html', entries=entries)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        session['username'] = request.form['username']
-        return redirect(url_for('index'))
+        if request.form['username'] == 'admin' and request.form['password'] == 'admin':
+            session['username'] = request.form['username']
+            return redirect(url_for('index'))
+        else:
+            return render_template('login.html', error="Invalid credentials")
     return render_template('login.html')
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 def logout():
-    session.clear()
+    session.pop('username', None)
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=80)
+    app.run(host='0.0.0.0', port=80)
