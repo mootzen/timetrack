@@ -15,8 +15,8 @@
       <tr><th>📅 Start</th><th>⏱️ End</th><th>🧮 Worked</th></tr>
       {% for entry in entries %}
       <tr>
-        <td>{{ entry.start }}</td>
-        <td>{{ entry.end }}</td>
+        <td>{{ entry.start_display }}</td>
+        <td>{{ entry.end_display }}</td>
         <td>{{ entry.duration }}</td>
       </tr>
       {% endfor %}
