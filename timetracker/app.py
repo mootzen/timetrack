@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import os
 import json
 from werkzeug.security import check_password_hash
@@ -42,15 +43,16 @@ def index():
 
     start_time = data.get('start_time')
     status = data.get('status', 'Stopped')
-
+    display_start_time = None
     elapsed = ''
     if start_time:
-        start_dt = datetime.fromisoformat(start_time)
-        delta = datetime.now() - start_dt
+        start_dt = datetime.fromisoformat(start_time).astimezone(ZoneInfo("Europe/Berlin"))
+        display_start_time = start_dt.strftime("%Y-%m-%d %H:%M:%S")
+        delta = datetime.now(ZoneInfo("Europe/Berlin")) - start_dt
         elapsed = str(delta).split('.')[0]
 
     # Calculate today and week totals
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("Europe/Berlin"))
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     start_of_week = start_of_today - timedelta(days=now.weekday())
 
@@ -58,8 +60,8 @@ def index():
     worked_week = timedelta()
 
     for entry in history:
-        s = datetime.fromisoformat(entry['start'])
-        e = datetime.fromisoformat(entry['end'])
+        s = datetime.fromisoformat(entry['start']).astimezone(ZoneInfo("Europe/Berlin"))
+        e = datetime.fromisoformat(entry['end']).astimezone(ZoneInfo("Europe/Berlin"))
         dur = e - s
         if s >= start_of_today:
             worked_today += dur
@@ -76,7 +78,7 @@ def index():
     percent_week = round(100 * worked_week.total_seconds() / expected_week.total_seconds(), 1)
 
     return render_template('index.html',
-                           start_time=start_time,
+                           start_time=display_start_time,
                            elapsed=elapsed,
                            status=status,
                            worked_today=str(worked_today).split('.')[0],
@@ -93,7 +95,7 @@ def start():
 
     data = load_json(TRACK_FILE, {})
     if data.get('status') != 'Started':
-        data['start_time'] = datetime.now().isoformat()
+        data['start_time'] = datetime.now(ZoneInfo("Europe/Berlin")).isoformat()
         data['status'] = 'Started'
         save_json(TRACK_FILE, data)
     return redirect(url_for('index'))
@@ -105,14 +107,14 @@ def stop():
 
     data = load_json(TRACK_FILE, {})
     if data.get('status') == 'Started':
-        start_time = datetime.fromisoformat(data['start_time'])
-        end_time = datetime.now()
+        start_time = datetime.fromisoformat(data['start_time']).astimezone(ZoneInfo("Europe/Berlin"))
+        end_time = datetime.now(ZoneInfo("Europe/Berlin"))
         duration = str(end_time - start_time).split('.')[0]
 
         history = load_json(HISTORY_FILE, [])
         history.append({
             'start': data['start_time'],
-            'end': end_time.isoformat(),
+            'end': end_time.astimezone(ZoneInfo("Europe/Berlin")).isoformat(),
             'duration': duration
         })
         save_json(HISTORY_FILE, history)
@@ -122,42 +124,14 @@ def stop():
         save_json(TRACK_FILE, data)
     return redirect(url_for('index'))
 
-from collections import defaultdict
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
 @app.route('/history')
 def history():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
     entries = load_json(HISTORY_FILE, [])
-    tz = ZoneInfo("Europe/Berlin")
+    return render_template('history.html', entries=entries)
 
-    # Format entries for display in local time
-    for entry in entries:
-        start_dt = datetime.fromisoformat(entry['start']).astimezone(tz)
-        end_dt = datetime.fromisoformat(entry['end']).astimezone(tz)
-        entry['start'] = start_dt.strftime("%Y-%m-%d %H:%M:%S")
-        entry['end'] = end_dt.strftime("%Y-%m-%d %H:%M:%S")
-
-    # Weekly aggregation
-    summary = defaultdict(float)
-    for entry in entries:
-        start = datetime.strptime(entry['start'], "%Y-%m-%d %H:%M:%S")
-        hours, minutes, seconds = map(int, entry['duration'].split(':'))
-        total_hours = hours + minutes / 60 + seconds / 3600
-        week = f"{start.year}-W{start.isocalendar().week:02d}"
-        summary[week] += total_hours
-
-    # Prepare chart data
-    weeks = list(summary.keys())
-    totals = [round(summary[week], 2) for week in weeks]
-
-    return render_template(
-        'history.html',
-        entries=entries,
-        weekly_summary=summary,
-        weeks=weeks,
-        totals=totals
-    )
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
     if 'username' not in session:
