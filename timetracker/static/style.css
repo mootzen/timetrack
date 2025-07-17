@@ -1,84 +1,77 @@
+
 :root {
-  --background-color: #f0f0f0;
-  --text-color: #333;
-  --card-bg: #ffffff;
-  --button-bg: #e0e0e0;
-  --button-text: #000000;
+  --bg-color-light: #f0f0f0;
+  --text-color-light: #333;
+  --bg-color-dark: #1e1e1e;
+  --text-color-dark: #eee;
+  --accent-color: #4CAF50;
 }
 
-[data-theme="dark"] {
-  --background-color: #1e1e1e;
-  --text-color: #f0f0f0;
-  --card-bg: #2c2c2c;
-  --button-bg: #333333;
-  --button-text: #ffffff;
+html[data-theme='light'] {
+  background-color: var(--bg-color-light);
+  color: var(--text-color-light);
+}
+
+html[data-theme='dark'] {
+  background-color: var(--bg-color-dark);
+  color: var(--text-color-dark);
 }
 
 body {
   font-family: Arial, sans-serif;
-  background: var(--background-color);
-  color: var(--text-color);
-  text-align: center;
   margin: 0;
-  padding: 2rem;
-}
-
-h1, h2 {
-  color: var(--text-color);
-}
-
-.button {
-  padding: 10px 20px;
-  margin: 10px;
-  font-size: 18px;
-  border: none;
-  border-radius: 8px;
-  background: var(--button-bg);
-  color: var(--button-text);
-  cursor: pointer;
-}
-
-a.link {
-  margin: 10px;
-  display: inline-block;
-  text-decoration: none;
-  font-size: 16px;
-  color: var(--text-color);
+  padding: 2em;
+  text-align: center;
 }
 
 .container {
-  max-width: 600px;
-  margin: 0 auto;
+  max-width: 500px;
+  margin: auto;
 }
 
-table {
+h1 {
+  margin-bottom: 1em;
+}
+
+form, .link, .summary {
+  margin: 1em 0;
+}
+
+button, .link {
+  padding: 0.6em 1.2em;
+  margin: 0.3em;
+  font-size: 1em;
+  border: none;
+  background-color: var(--accent-color);
+  color: white;
+  cursor: pointer;
+  border-radius: 5px;
+  text-decoration: none;
+}
+
+button:hover, .link:hover {
+  opacity: 0.9;
+}
+
+input, select {
+  padding: 0.5em;
+  font-size: 1em;
+  margin: 0.5em 0;
   width: 100%;
-  border-collapse: collapse;
-  background: var(--card-bg);
+  max-width: 300px;
 }
 
-th, td {
-  border: 1px solid #ccc;
-  padding: 10px;
-  text-align: left;
-}
-
-th {
-  background-color: var(--button-bg);
-}
-
-.summary {
-  margin-top: 20px;
-  font-size: 16px;
+.status, .summary {
+  margin-top: 2em;
+  padding: 1em;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 @media (max-width: 600px) {
-  body {
-    padding: 1rem;
-  }
-
-  .button {
-    font-size: 16px;
-    padding: 8px 16px;
+  button, .link {
+    width: 100%;
+    display: block;
+    margin: 0.5em 0;
   }
 }
