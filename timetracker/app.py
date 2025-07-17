@@ -124,20 +124,24 @@ def stop():
 
 from collections import defaultdict
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 @app.route('/history')
 def history():
     entries = load_json(HISTORY_FILE, [])
+    tz = ZoneInfo("Europe/Berlin")
 
-    # Format entries for display
+    # Format entries for display in local time
     for entry in entries:
-        entry['start'] = entry['start'].replace('T', ' ')[:19]
-        entry['end'] = entry['end'].replace('T', ' ')[:19]
+        start_dt = datetime.fromisoformat(entry['start']).astimezone(tz)
+        end_dt = datetime.fromisoformat(entry['end']).astimezone(tz)
+        entry['start'] = start_dt.strftime("%Y-%m-%d %H:%M:%S")
+        entry['end'] = end_dt.strftime("%Y-%m-%d %H:%M:%S")
 
     # Weekly aggregation
     summary = defaultdict(float)
     for entry in entries:
-        start = datetime.fromisoformat(entry['start'])
+        start = datetime.strptime(entry['start'], "%Y-%m-%d %H:%M:%S")
         hours, minutes, seconds = map(int, entry['duration'].split(':'))
         total_hours = hours + minutes / 60 + seconds / 3600
         week = f"{start.year}-W{start.isocalendar().week:02d}"
