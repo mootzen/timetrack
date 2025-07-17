@@ -1,37 +1,34 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{{ 'dark' if session.get('dark_mode') else 'light' }}">
 <head>
-  <meta charset="UTF-8">
-  <title>Uhrensohn</title>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f0f0f0; text-align: center; padding: 50px; }
-    h1 { color: #333; }
-    .button { padding: 10px 20px; margin: 10px; font-size: 16px; }
-    .elapsed { margin-top: 20px; font-size: 18px; color: green; }
-    .link { margin: 10px; display: inline-block; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Time Tracker</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <h1>⏱️ Uhrensohn - AZ-Erfassung</h1>
-  <form action="/start" method="post"><button class="button" type="submit">▶️ Start</button></form>
-  <form action="/stop" method="post"><button class="button" type="submit">⏹️ Stop</button></form>
-  <form action="/break_start" method="post"><button class="button" type="submit">⏸️ Break Start</button></form>
-  <form action="/break_end" method="post"><button class="button" type="submit">⏯️ Break End</button></form>
-  <form action="/health" method="get"><button class="button" type="submit">❤️ Health</button></form>
-  <a class="link" href="/history">📜 View History</a>
-  {% if status %}
-  <div class="elapsed">
-      <strong>Status:</strong> {{ status }} <br/>
-      {% if start %}
-      <strong>Started:</strong> {{ start }} <br/>
-      {% endif %}
-      {% if break_since %}
-      <strong>On Break since:</strong> {{ break_since }} <br/>
-      {% endif %}
-      {% if elapsed %}
-      <strong>Elapsed:</strong> {{ elapsed }} <br/>
-      {% endif %}
-  </div>
-  {% endif %}
+    <div class="container">
+        <h1>Welcome, {{ session['username'] }}</h1>
+        <form action="/start" method="post">
+            <button type="submit">Start Work</button>
+        </form>
+        <form action="/stop" method="post">
+            <button type="submit">Stop Work</button>
+        </form>
+        <form action="/logout" method="post">
+            <button type="submit">Logout</button>
+        </form>
+        <a href="/history">View History</a> |
+        <a href="/settings">Settings</a>
+
+        {% if last_entry %}
+            <p>Last session: {{ last_entry['start'] }} to {{ last_entry['end'] }} ({{ last_entry['duration'] }})</p>
+        {% endif %}
+
+        {% if stats %}
+            <p>Today: {{ stats['today_worked'] }} of {{ stats['expected_daily'] }} hours worked ({{ stats['day_percent'] }}%)</p>
+            <p>This week: {{ stats['week_worked'] }} of {{ stats['expected_weekly'] }} hours worked ({{ stats['week_percent'] }}%)</p>
+            <p>Overtime: {{ stats['overtime'] }}</p>
+        {% endif %}
+    </div>
 </body>
 </html>
