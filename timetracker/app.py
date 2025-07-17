@@ -2,12 +2,14 @@ from flask import Flask, render_template, request, redirect, url_for, session
 from datetime import datetime, timedelta
 import os
 import json
+from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'
 
 DATA_DIR = 'data'
 TRACK_FILE = os.path.join(DATA_DIR, 'track.json')
+USERS_FILE = os.path.join(DATA_DIR, 'users.json')
 
 # Ensure data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -100,11 +102,23 @@ def history():
         entries = []
     return render_template('history.html', entries=entries)
 
+def load_users():
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        if request.form['username'] == 'admin' and request.form['password'] == 'admin':
-            session['username'] = request.form['username']
+        username = request.form['username']
+        password = request.form['password']
+
+        users = load_users()
+        stored_hash = users.get(username)
+
+        if stored_hash and check_password_hash(stored_hash, password):
+            session['username'] = username
             return redirect(url_for('index'))
         else:
             return render_template('login.html', error="Invalid credentials")
