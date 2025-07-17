@@ -1,137 +1,118 @@
-from flask import Flask, request, render_template, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
 from datetime import datetime, timedelta
 import os
 import json
+import pytz
 
 app = Flask(__name__)
+app.secret_key = 'your_secret_key'
 
-DATA_FILE = 'timelog.json'
-start_time = None
-break_start_time = None
-current_breaks = []
+DATA_FILE = 'data.json'
+TIMEZONE = pytz.timezone('Europe/Berlin')  # CEST/UTC+2
+
+DEFAULT_SETTINGS = {
+    "expected_daily_hours": 8,
+    "expected_weekly_hours": 40,
+    "break_minutes": 30,
+    "dark_mode": False
+}
 
 def load_data():
     if not os.path.exists(DATA_FILE):
-        return []
-    with open(DATA_FILE, 'r') as f:
-        return json.load(f)
+        return {}
+    try:
+        with open(DATA_FILE, 'r') as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        return {}
 
 def save_data(data):
     with open(DATA_FILE, 'w') as f:
         json.dump(data, f, indent=2)
 
-def str_to_timedelta(s):
-    """Convert HH:MM:SS string (possibly with microseconds) to timedelta."""
-    if '.' in s:
-        s = s.split('.')[0]
-    h, m, sec = map(int, s.split(":"))
-    return timedelta(hours=h, minutes=m, seconds=sec)
+def get_user():
+    return session.get('username', 'default')
 
-@app.route("/", methods=["GET"])
+@app.route('/')
 def index():
-    global start_time, break_start_time
+    user = get_user()
+    data = load_data()
+    start_time = data.get(user, {}).get('start_time')
+    is_tracking = start_time is not None
+    settings = data.get(user, {}).get('settings', DEFAULT_SETTINGS)
+    return render_template('index.html', is_tracking=is_tracking, settings=settings)
 
-    status = "🔴 Not working"
-    start = None
-    break_since = None
-    elapsed = None
-
-    if start_time:
-        start = start_time.strftime("%Y-%m-%d %H:%M:%S")
-        if break_start_time:
-            status = "🟡 On Break"
-            break_since = break_start_time.strftime("%H:%M:%S")
-        else:
-            status = "🟢 Working"
-            elapsed = str(datetime.now() - start_time).split(".")[0]
-
-    return render_template("index.html", elapsed=elapsed, status=status, start=start, break_since=break_since)
-
-@app.route("/start", methods=["POST"])
+@app.route('/start', methods=['POST'])
 def start():
-    global start_time, current_breaks, break_start_time
-    start_time = datetime.now()
-    current_breaks = []
-    break_start_time = None
-    return redirect(url_for('index'))
-
-@app.route("/stop", methods=["POST"])
-def stop():
-    global start_time, current_breaks, break_start_time
-    if not start_time:
-        return redirect(url_for('index'))
-
-    end_time = datetime.now()
-    worked_time = end_time - start_time
-    break_total = sum([b[1] - b[0] for b in current_breaks], timedelta())
-
-    log_entry = {
-        "start": start_time.isoformat(),
-        "end": end_time.isoformat(),
-        "elapsed": str(worked_time - break_total).split(".")[0],
-        "breaks": str(break_total).split(".")[0]
-    }
-
+    user = get_user()
     data = load_data()
-    data.append(log_entry)
+    if user not in data:
+        data[user] = {}
+    data[user]['start_time'] = datetime.now(TIMEZONE).isoformat()
     save_data(data)
-
-    start_time = None
-    current_breaks = []
-    break_start_time = None
-
     return redirect(url_for('index'))
 
-@app.route("/break_start", methods=["POST"])
-def break_start():
-    global break_start_time
-    if start_time and not break_start_time:
-        break_start_time = datetime.now()
-    return redirect(url_for('index'))
-
-@app.route("/break_end", methods=["POST"])
-def break_end():
-    global break_start_time, current_breaks
-    if break_start_time:
-        current_breaks.append((break_start_time, datetime.now()))
-        break_start_time = None
-    return redirect(url_for('index'))
-
-@app.route("/history", methods=["GET"])
-def history():
+@app.route('/stop', methods=['POST'])
+def stop():
+    user = get_user()
     data = load_data()
-    parsed_entries = []
-    weekly_summary = {}
-
-    for entry in data:
-        start = datetime.fromisoformat(entry['start'])
-        end = datetime.fromisoformat(entry['end'])
-        elapsed = str_to_timedelta(entry.get('elapsed', '0:00:00'))
-        breaks = str_to_timedelta(entry.get('breaks', '0:00:00'))
-
-        week = start.strftime("%Y-W%W")
-        weekly_summary[week] = weekly_summary.get(week, timedelta()) + elapsed
-
-        parsed_entries.append({
-            "start": start.strftime("%Y-%m-%d %H:%M"),
-            "end": end.strftime("%Y-%m-%d %H:%M"),
-            "elapsed": str(elapsed),
-            "breaks": str(breaks)
+    user_data = data.get(user, {})
+    start_time = user_data.pop('start_time', None)
+    if start_time:
+        start_dt = datetime.fromisoformat(start_time)
+        end_dt = datetime.now(TIMEZONE)
+        duration = (end_dt - start_dt).total_seconds()
+        history = user_data.setdefault('history', [])
+        history.append({
+            'start': start_time,
+            'end': end_dt.isoformat(),
+            'duration': duration
         })
+    save_data(data)
+    return redirect(url_for('index'))
 
-    weeks = list(weekly_summary.keys())
-    totals = [round(td.total_seconds() / 3600, 2) for td in weekly_summary.values()]
-    weekly_summary_str = {week: str(td) for week, td in weekly_summary.items()}
+@app.route('/history')
+def history():
+    user = get_user()
+    data = load_data()
+    history = data.get(user, {}).get('history', [])
+    settings = data.get(user, {}).get('settings', DEFAULT_SETTINGS)
 
-    return render_template("history.html",
-                           entries=parsed_entries,
-                           weekly_summary=weekly_summary_str,
-                           weeks=weeks,
-                           totals=totals)
+    # Calculate total work time this week
+    this_week = datetime.now(TIMEZONE).isocalendar().week
+    total_seconds = sum(e['duration'] for e in history if datetime.fromisoformat(e['start']).isocalendar().week == this_week)
+    percent = round((total_seconds / (settings['expected_weekly_hours'] * 3600)) * 100, 1)
 
-@app.route("/health", methods=["GET"])
-def health():
-    return "Service healthy ✅", 200
+    return render_template('history.html', history=history[::-1], total_seconds=total_seconds, percent=percent, settings=settings)
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=80)
+@app.route('/settings', methods=['GET', 'POST'])
+def settings():
+    user = get_user()
+    data = load_data()
+    user_data = data.setdefault(user, {})
+    if request.method == 'POST':
+        user_data['settings'] = {
+            'expected_daily_hours': float(request.form['daily_hours']),
+            'expected_weekly_hours': float(request.form['weekly_hours']),
+            'break_minutes': int(request.form['break_minutes']),
+            'dark_mode': 'dark_mode' in request.form
+        }
+        save_data(data)
+        return redirect(url_for('index'))
+    settings = user_data.get('settings', DEFAULT_SETTINGS)
+    return render_template('settings.html', settings=settings)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        session['username'] = request.form['username']
+        return redirect(url_for('index'))
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0')
