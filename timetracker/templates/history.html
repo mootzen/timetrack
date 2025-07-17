@@ -1,68 +1,61 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{{ 'dark' if session.get('dark_mode') else 'light' }}">
 <head>
-    <meta charset="UTF-8">
-    <title>Session History</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>📜 Session History</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="{{ 'dark' if dark_mode else '' }}">
-    <div class="container">
-        <h1>📜 History</h1>
-        <a href="/" class="button">🔙 Back</a>
-        <table>
-            <thead>
-                <tr><th>Start</th><th>End</th><th>Worked</th><th>Breaks</th></tr>
-            </thead>
-            <tbody>
-                {% for entry in entries %}
-                <tr>
-                    <td>{{ entry.start }}</td>
-                    <td>{{ entry.end }}</td>
-                    <td>{{ entry.elapsed }}</td>
-                    <td>{{ entry.breaks }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<body>
+  <div class="container">
+    <h1>📜 History</h1>
+    <a class="link" href="/">🔙 Back</a>
+    <table>
+      <tr><th>📅 Start</th><th>⏱️ End</th><th>🧮 Worked</th></tr>
+      {% for entry in entries %}
+      <tr>
+        <td>{{ entry.start }}</td>
+        <td>{{ entry.end }}</td>
+        <td>{{ entry.duration }}</td>
+      </tr>
+      {% endfor %}
+    </table>
 
-        <div class="summary">
-            <h2>📊 Weekly Summary</h2>
-            {% for week, total in weekly_summary.items() %}
-            <p><strong>{{ week }}:</strong> {{ total }}</p>
-            {% endfor %}
-        </div>
-
-        <canvas id="chart" width="400" height="200"></canvas>
+    <div class="summary">
+      <h2>📊 Weekly Summary</h2>
+      {% for week, total in weekly_summary.items() %}
+      <p><strong>{{ week }}:</strong> {{ total }}</p>
+      {% endfor %}
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        const ctx = document.getElementById('chart').getContext('2d');
-        const chart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: {{ weeks | safe }},
-                datasets: [{
-                    label: 'Total Hours',
-                    data: {{ totals | safe }},
-                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(val) { return val + 'h'; }
-                        }
-                    }
-                }
+    <canvas id="chart" width="400" height="200"></canvas>
+  </div>
+
+  <script>
+    const ctx = document.getElementById('chart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: {{ weeks | safe }},
+        datasets: [{
+          label: 'Total Hours',
+          data: {{ totals | safe }},
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(val) { return val + 'h'; }
             }
-        });
-    </script>
+          }
+        }
+      }
+    });
+  </script>
 </body>
 </html>
