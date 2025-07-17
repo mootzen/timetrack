@@ -4,19 +4,24 @@
     <meta charset="UTF-8">
     <title>Uhrensohn</title>
     <link rel="stylesheet" href="/static/style.css">
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
     <script>
-        let startTime = "{{ start_time }}";
-        let elapsedTime = "{{ elapsed }}";
+        let startTime = "{{ start_dt_iso }}";
+
         function updateElapsed() {
             const start = new Date(startTime);
             const now = new Date();
-            const diff = new Date(now - start);
-            const hrs = String(diff.getUTCHours()).padStart(2, '0');
-            const mins = String(diff.getUTCMinutes()).padStart(2, '0');
-            const secs = String(diff.getUTCSeconds()).padStart(2, '0');
+            const diffMs = now - start;
+
+            if (diffMs < 0) return;
+
+            const totalSeconds = Math.floor(diffMs / 1000);
+            const hrs = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+            const mins = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+            const secs = String(totalSeconds % 60).padStart(2, '0');
+
             document.getElementById('elapsed').textContent = `${hrs}:${mins}:${secs}`;
         }
+
         setInterval(updateElapsed, 1000);
     </script>
 </head>
