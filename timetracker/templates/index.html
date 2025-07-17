@@ -1,34 +1,78 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="{{ 'dark' if session.get('dark_mode') else 'light' }}">
 <head>
-    <meta charset="UTF-8">
-    <title>Time Tracker</title>
-    <link rel="stylesheet" href="/static/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Uhrensohn</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--background-color, #f0f0f0);
+      text-align: center;
+      padding: 50px;
+      margin: 0;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+    }
+    .button {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .elapsed {
+      margin-top: 20px;
+      font-size: 18px;
+      color: green;
+    }
+    .link {
+      margin: 10px;
+      display: inline-block;
+      text-decoration: none;
+      font-size: 16px;
+    }
+    .footer {
+      margin-top: 30px;
+    }
+    @media (max-width: 600px) {
+      body { padding: 20px; }
+      .button { font-size: 16px; padding: 8px 16px; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Welcome, {{ session['username'] }}</h1>
-        <form action="/start" method="post">
-            <button type="submit">Start Work</button>
-        </form>
-        <form action="/stop" method="post">
-            <button type="submit">Stop Work</button>
-        </form>
-        <form action="/logout" method="post">
-            <button type="submit">Logout</button>
-        </form>
-        <a href="/history">View History</a> |
-        <a href="/settings">Settings</a>
+  <h1>⏱️ Uhrensohn - AZ-Erfassung</h1>
 
-        {% if last_entry %}
-            <p>Last session: {{ last_entry['start'] }} to {{ last_entry['end'] }} ({{ last_entry['duration'] }})</p>
-        {% endif %}
+  <form action="/start" method="post">
+    <button class="button" type="submit">▶️ Start</button>
+  </form>
+  <form action="/stop" method="post">
+    <button class="button" type="submit">⏹️ Stop</button>
+  </form>
 
-        {% if stats %}
-            <p>Today: {{ stats['today_worked'] }} of {{ stats['expected_daily'] }} hours worked ({{ stats['day_percent'] }}%)</p>
-            <p>This week: {{ stats['week_worked'] }} of {{ stats['expected_weekly'] }} hours worked ({{ stats['week_percent'] }}%)</p>
-            <p>Overtime: {{ stats['overtime'] }}</p>
-        {% endif %}
-    </div>
+  <div class="footer">
+    <a class="link" href="/history">📜 View History</a> |
+    <a class="link" href="/settings">⚙️ Settings</a> |
+    <form style="display:inline;" action="/logout" method="post">
+      <button class="button" style="font-size: 14px;">🚪 Logout</button>
+    </form>
+  </div>
+
+  {% if status %}
+  <div class="elapsed">
+    <strong>Status:</strong> {{ status }} <br/>
+    {% if start_time %}
+    <strong>Started:</strong> {{ start_time }} <br/>
+    {% endif %}
+    {% if elapsed %}
+    <strong>Elapsed:</strong> {{ elapsed }} <br/>
+    {% endif %}
+  </div>
+  {% endif %}
 </body>
 </html>
