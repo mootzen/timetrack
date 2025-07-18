@@ -1,17 +1,17 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from datetime import datetime, timedelta
-from datetime import timezone
 from zoneinfo import ZoneInfo
+from collections import defaultdict
 import os
 import json
 from werkzeug.security import check_password_hash
 from dotenv import load_dotenv
+
+
 def safe_parse_iso(dt_str, tz):
     dt = datetime.fromisoformat(dt_str)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=tz)
-    return dt.astimezone(tz)
-
     return dt.astimezone(tz)
 
 
@@ -135,9 +135,6 @@ def stop():
         data['start_time'] = None
         save_json(TRACK_FILE, data)
     return redirect(url_for('index'))
-from collections import defaultdict
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
 @app.route('/history')
 def history():

@@ -5,9 +5,11 @@
     <title>Uhrensohn</title>
     <link rel="stylesheet" href="/static/style.css">
     <script>
-        let startTime = "{{ start_dt_iso }}";
+        const startTime = "{{ start_dt_iso }}";
 
         function updateElapsed() {
+            if (!startTime) return;
+
             const start = new Date(startTime);
             const now = new Date();
             const diffMs = now - start;
@@ -19,10 +21,15 @@
             const mins = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
             const secs = String(totalSeconds % 60).padStart(2, '0');
 
-            document.getElementById('elapsed').textContent = `${hrs}:${mins}:${secs}`;
+            const el = document.getElementById('elapsed');
+            if (el) {
+                el.textContent = `${hrs}:${mins}:${secs}`;
+            }
         }
 
-        setInterval(updateElapsed, 1000);
+        if (startTime) {
+            setInterval(updateElapsed, 1000);
+        }
     </script>
 </head>
 <body>
