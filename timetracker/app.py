@@ -1,9 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, send_file
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from collections import defaultdict
 import os
 import json
+from io import BytesIO
+from fpdf import FPDF
 from werkzeug.security import check_password_hash
 from dotenv import load_dotenv
 
@@ -169,6 +171,82 @@ def history():
         weeks=weeks,
         totals=totals
     )
+
+
+@app.route('/export')
+def export():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    period = request.args.get('period', 'daily')
+    entries = load_json(HISTORY_FILE, [])
+    tz = ZoneInfo("Europe/Berlin")
+    now = datetime.now(tz)
+
+    if period == 'weekly':
+        start_period = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        period_label = f"Week of {start_period.strftime('%Y-%m-%d')}"
+    elif period == 'monthly':
+        start_period = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_label = now.strftime('%Y-%m')
+    else:
+        start_period = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        period_label = now.strftime('%Y-%m-%d')
+
+    filtered = []
+    total_seconds = 0
+    for entry in entries:
+        start_dt = safe_parse_iso(entry['start'], tz)
+        end_dt = safe_parse_iso(entry['end'], tz)
+        if start_dt >= start_period:
+            dur = end_dt - start_dt
+            total_seconds += dur.total_seconds()
+            filtered.append({
+                'start': start_dt.strftime('%d-%m-%y %H:%M:%S'),
+                'end': end_dt.strftime('%d-%m-%y %H:%M:%S'),
+                'duration': str(dur).split('.')[0]
+            })
+
+    total_hours = total_seconds / 3600
+
+    settings = load_json(SETTINGS_FILE, {'daily_hours': 8, 'weekly_hours': 40})
+    if period == 'weekly':
+        expected = settings.get('weekly_hours', 40)
+    elif period == 'monthly':
+        days_in_month = (start_period + timedelta(days=32)).replace(day=1) - start_period
+        expected = settings.get('daily_hours', 8) * days_in_month.days
+    else:
+        expected = settings.get('daily_hours', 8)
+
+    overtime = total_hours - expected
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font('Arial', 'B', 16)
+    pdf.cell(0, 10, f'Work Report - {period.capitalize()}', ln=True, align='C')
+    pdf.set_font('Arial', '', 12)
+    pdf.cell(0, 10, f'Period: {period_label}', ln=True)
+    pdf.ln(4)
+
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(60, 10, 'Start')
+    pdf.cell(60, 10, 'End')
+    pdf.cell(30, 10, 'Duration', ln=True)
+    pdf.set_font('Arial', '', 12)
+    for e in filtered:
+        pdf.cell(60, 10, e['start'])
+        pdf.cell(60, 10, e['end'])
+        pdf.cell(30, 10, e['duration'], ln=True)
+
+    pdf.ln(5)
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(0, 10, 'Summary', ln=True)
+    pdf.set_font('Arial', '', 12)
+    pdf.cell(0, 10, f'Total hours: {total_hours:.2f}', ln=True)
+    pdf.cell(0, 10, f'Overtime: {overtime:.2f}', ln=True)
+
+    pdf_bytes = pdf.output(dest='S').encode('latin-1')
+    return send_file(BytesIO(pdf_bytes), download_name='report.pdf', mimetype='application/pdf', as_attachment=True)
 
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():

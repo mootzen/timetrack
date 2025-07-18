@@ -2,3 +2,4 @@ flask
 pytz
 werkzeug
 dotenv
+fpdf2

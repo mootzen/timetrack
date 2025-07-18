@@ -30,6 +30,16 @@
       {% endfor %}
     </div>
 
+    <form action="/export" method="get">
+      <label for="period">Export:</label>
+      <select name="period" id="period">
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Monthly</option>
+      </select>
+      <button type="submit" class="button">📄 Export PDF</button>
+    </form>
+
     <canvas id="chart" width="400" height="200"></canvas>
   </div>
 
